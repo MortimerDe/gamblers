@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "numpy>=2.5.2",
+    "pyarrow>=25.0.1",
 ]
 
 [project.scripts]
@@ -17,6 +18,7 @@ build-backend = "uv_build"
 
 [tool.pyright]
 typeCheckingMode = "strict"
+reportMissingTypeStubs = "none"
 
 [dependency-groups]
 dev = [
