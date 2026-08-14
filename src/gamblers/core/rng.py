@@ -16,7 +16,8 @@ class RngHub:
         gen = self._streams.get(name)
         if gen is None:
             seq = np.random.SeedSequence(entropy=self.seed, spawn_key=(_stable_key(name),))
-            gen = np.random.default_rng(seq)
+            bit_gen = np.random.PCG64(seq)
+            gen = np.random.Generator(bit_gen)
             self._streams[name] = gen
         return gen
 
@@ -30,6 +31,8 @@ class RngHub:
         self.seed = data["seed"]
         self._streams.clear()
         for name, state in data["streams"].items():
-            gen = np.random.default_rng()
-            gen.bit_generator.state = state
+            bit_gen = np.random.PCG64()
+            bit_gen.state = state
+            gen = np.random.Generator(bit_gen)
+
             self._streams[name] = gen
