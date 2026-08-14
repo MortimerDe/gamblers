@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any
+from pathlib import Path
+from types import TracebackType
+from typing import Any, Self
 
 import pyarrow as pa
+from pyarrow import parquet as pq
 
 # pyright: reportUnknownMemberType=false
 # pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
 
 @dataclass(frozen=True)
 class Event:
@@ -34,3 +40,31 @@ _SCHEMA = pa.schema(
         pa.field("extra", pa.string()),
     ]
 )
+
+class EventLog:
+    """
+    Buffered writer / Context manager for events. Writes to a Parquet file.
+    """
+    def __init__(self, path: Path, batch_size: int = 10_000) -> None:
+        self._path = path
+        self._batch_size = batch_size
+        self._buffer: list[Event] = []
+        self._writer: pq.ParquetWriter | None = None
+
+    def __enter__(self) -> Self: 
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._writer = pq.ParquetWriter(self._path, _SCHEMA, compression="zstd")
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None) -> None:
+        self.close()
+
+    def append(self, event: Event) -> None:
+        pass
+
+    def flush(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+        
