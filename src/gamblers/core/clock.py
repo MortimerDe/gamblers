@@ -14,10 +14,19 @@ class TickDriver:
         self.speed = speed
         self._acc = 0.0
 
-    def advance(self, dt: float):
-        pass
-    
+    def advance(self, dt: float) -> int:
+        """Called by the renderer once per frame. Returns the number of ticks"""
+        if self.speed.paused:
+            return 0
+
+        self._acc += dt * self.speed.ticks_per_second
+        n = int(self._acc)
+        self._acc -= n
+        for _ in range(n):
+            self.world.tick()
+        return n
+
     @property
     def alpha(self) -> float:
-        """frac before the next tick (for interpolation in render)"""
+        """Fraction before the next tick (used for interpolation during rendering)."""
         return self._acc
