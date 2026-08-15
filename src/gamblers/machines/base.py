@@ -1,4 +1,4 @@
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Callable, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -37,3 +37,19 @@ class Machine(Protocol):
 
     def load_state_dict(self, data: dict[str, Any]) -> None:
         ...
+
+MachineFactory = Callable[..., Machine] # (*anytinhg, **anything) -> Machine
+_REGISTRY: dict[str, MachineFactory] = {}
+
+def register_machine(type_name: str) -> Callable[[MachineFactory], MachineFactory]:
+    def decorator(machine: MachineFactory) -> MachineFactory:
+        if type_name in _REGISTRY:
+            raise ValueError(f"Machine type {type_name} already registered")
+        _REGISTRY[type_name] = machine
+        return machine
+    return decorator
+
+def build_machine(type_name: str, **kwargs: Any) -> Machine:
+    if type_name not in _REGISTRY:
+        raise ValueError(f"Machine type {type_name} not registered")
+    return _REGISTRY[type_name](**kwargs)
