@@ -45,8 +45,16 @@ class Machine[C: MachineConfig](VerStateMixin, ABC):
     #   Machine -> get_origin, RouletteConfig -> get_args
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
+
         if getattr(cls, "__abstractmethods__", None):
             return
+
+        if "type_name" not in cls.__dict__:
+            raise TypeError(f"{cls.__name__} must declare type_name")
+
+        type_name = cls.__dict__["type_name"]
+        if not isinstance(type_name, str) or not type_name:
+            raise TypeError(f"{cls.__name__}.type_name must be a non-empty str")
 
         if "config_cls" not in cls.__dict__:
             raise TypeError(f"{cls.__name__} must declare config_cls")
