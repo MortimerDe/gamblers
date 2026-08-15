@@ -26,7 +26,7 @@ class Ver(Protocol):
     def dump_state(self) -> dict[str, Any]: ...
     def load_state(self, state: dict[str, Any]) -> None: ...
 
-class VerMixin:
+class VerStateMixin:
     state_kind: ClassVar[str] = ""
     state_ver: ClassVar[int] = 1
 
