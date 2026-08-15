@@ -1,6 +1,6 @@
 import numpy as np
 
-from gamblers.core.machines.coin import CoinFlipper, CoinFlipperConfig
+from gamblers.core.machines.coin_flipper import CoinFlipper, CoinFlipperConfig
 from gamblers.core.types import AgentId, MachineId
 
 
