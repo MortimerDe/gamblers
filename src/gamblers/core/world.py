@@ -5,10 +5,11 @@ Single source of truth for the simulation state.
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
+import heapq
 from typing import Any, ClassVar
 
 from gamblers.core.agents.base import Agent
-from gamblers.core.events import EventSink
+from gamblers.core.events import EventSink, EventType
 from gamblers.core.machines.base import Machine
 from gamblers.core.rng import RngHub
 from gamblers.core.types import Action, AgentId, Cell, MachineId, Obs, Outcome, Tick
@@ -82,7 +83,7 @@ class World(VerStateMixin):
         self.queues: dict[MachineId, deque[AgentId]] = {m: deque() for m in machines}
         self.occupancy: dict[MachineId, int] = {m: 0 for m in machines}
 
-        self._pending: list[PendingOutcome] = []
+        self._pending: list[PendingOutcome] = [] # heapq
         self._seq: int = 0
 
         # the order of traversal (both agents and machines) is fixed in
@@ -97,10 +98,41 @@ class World(VerStateMixin):
         """
         self.tick_count = Tick(self.tick_count + 1)
 
-        # todo resolvers for outcomes, machine ticks, advance movevemnt, serve queues, decide next actions, etc.
+        self._resolve_due_outcomes()  # 1. return ready results
+        self._tick_machines()  # 2. machines tick their own state
+        self._advance_movement()  # 3. move agents along their paths
+        self._serve_queues()  # 4. serve agents waiting in queues
+        self._decide()  # 5. free agents decide where to go and what to do
 
     def _resolve_due_outcomes(self) -> None:
-        pass
+        while self._pending and self._pending[0].sort_tick <= self.tick_count:
+            item = heapq.heappop(self._pending)
+            rt = self.runtimes[item.agent_id]
+
+            cap_before = rt.capital
+            rt.capital += item.outcome.delta
+            rt.last_machine = item.machine_id
+            rt.last_delta = item.outcome.delta
+            self.occupancy[item.machine_id] -= 1
+
+            if rt.pending_obs is not None and rt.pending_action is not None:
+                rt.agent.observe(rt.pending_obs, rt.pending_action, item.outcome)
+
+            rt.pending_action = None
+            rt.pending_obs = None
+            rt.status = AgentStatus.IDLE
+
+            self._log(
+                rt,
+                EventType.RESULT,
+                machine_id=item.machine_id,
+                delta=item.outcome.delta,
+                capital_before=cap_before,
+                capital_after=rt.capital,
+                extra=item.outcome.extra,
+            )
+            
+
 
     def _tick_machines(self) -> None:
         pass
@@ -116,4 +148,16 @@ class World(VerStateMixin):
 
     def _decide(self) -> None:
         pass
-    
+
+    def _log(
+        self,
+        rt: AgentRuntime,
+        et: EventType,
+        *,
+        machine_id: MachineId | None = None,
+        delta: int | None = None,
+        capital_before: int | None = None,
+        capital_after: int | None = None,
+        extra: dict[str, Any] | None = None,
+        ) -> None:
+        pass
