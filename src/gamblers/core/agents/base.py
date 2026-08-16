@@ -56,7 +56,7 @@ class Agent[A: AgentConfig](VerStateMixin, ABC):
         return self.type_name
 
     @property
-    def label(self) -> str | None:
+    def label(self) -> str:
         return self.config.label or type(self).type_name
 
     @abstractmethod

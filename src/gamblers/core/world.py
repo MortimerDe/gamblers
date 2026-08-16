@@ -9,7 +9,7 @@ import heapq
 from typing import Any, ClassVar
 
 from gamblers.core.agents.base import Agent
-from gamblers.core.events import EventSink, EventType
+from gamblers.core.events import Event, EventSink, EventType
 from gamblers.core.machines.base import Machine
 from gamblers.core.rng import RngHub
 from gamblers.core.types import Action, AgentId, Cell, MachineId, Obs, Outcome, Tick
@@ -83,7 +83,7 @@ class World(VerStateMixin):
         self.queues: dict[MachineId, deque[AgentId]] = {m: deque() for m in machines}
         self.occupancy: dict[MachineId, int] = {m: 0 for m in machines}
 
-        self._pending: list[PendingOutcome] = [] # heapq
+        self._pending: list[PendingOutcome] = []  # heapq
         self._seq: int = 0
 
         # the order of traversal (both agents and machines) is fixed in
@@ -131,8 +131,6 @@ class World(VerStateMixin):
                 capital_after=rt.capital,
                 extra=item.outcome.extra,
             )
-            
-
 
     def _tick_machines(self) -> None:
         pass
@@ -159,5 +157,18 @@ class World(VerStateMixin):
         capital_before: int | None = None,
         capital_after: int | None = None,
         extra: dict[str, Any] | None = None,
-        ) -> None:
-        pass
+    ) -> None:
+        self.event_log.append(
+            Event(
+                tick=int(self.tick_count),
+                agent_id=int(rt.agent.agent_id),
+                agent_type=rt.agent.agent_type,
+                agent_label=rt.agent.label,
+                event=et,
+                machine_id=machine_id,
+                delta=delta,
+                capital_before=capital_before,
+                capital_after=capital_after,
+                extra=extra or {},
+            )
+        )

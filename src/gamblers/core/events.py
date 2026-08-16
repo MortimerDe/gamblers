@@ -26,7 +26,7 @@ class Event:
     tick: int
     agent_id: int
     agent_type: str  
-    agent_label: str 
+    agent_label: str
     event: EventType
     machine_id: str | None
     delta: int | None
