@@ -99,3 +99,21 @@ class World(VerStateMixin):
 
         # todo resolvers for outcomes, machine ticks, advance movevemnt, serve queues, decide next actions, etc.
 
+    def _resolve_due_outcomes(self) -> None:
+        pass
+
+    def _tick_machines(self) -> None:
+        pass
+
+    def _advance_movement(self) -> None:
+        pass
+
+    def _serve_queues(self) -> None:
+        pass
+
+    def _start_play(self, agent_id: AgentId, machine: Machine[Any]) -> None:
+        pass
+
+    def _decide(self) -> None:
+        pass
+    
