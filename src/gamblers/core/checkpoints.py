@@ -1,11 +1,10 @@
 import pickle
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict
 
-from gamblers.core.utils import todo
 from gamblers.core.world import World
 
 CHECKPOINT_FORMAT_VERSION: int = 1
@@ -50,7 +49,17 @@ def save_checkpoint(world: World, run_dir: Path, keep_last: int = 3) -> Path:
 
 
 def load_checkpoint(path: Path) -> tuple[ChkpMeta, dict[str, Any]]:
-    todo()
+    with path.open("rb") as f:
+        payload: Any = pickle.load(f)
+    if not isinstance(payload, dict) or "meta" not in payload: # type: ignore
+        raise ChkpErr(f"invalid checkpoint file: {path}")
+    meta = ChkpMeta.model_validate(payload["meta"])
+    if meta.format_version > CHECKPOINT_FORMAT_VERSION:
+        raise ChkpErr(
+            f"{path}: format v{meta.format_version} is newer than the code "
+            f"(v{CHECKPOINT_FORMAT_VERSION}). Update the code."
+        )
+    return meta, cast(dict[str, Any], payload["state"])
 
 
 def latest_checkpoint(run_dir: Path) -> Path | None:
