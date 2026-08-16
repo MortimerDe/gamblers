@@ -2,10 +2,10 @@
 Single source of truth for the simulation state.
 """
 
+import heapq
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-import heapq
 from typing import Any, ClassVar
 
 from gamblers.core.agents.base import Agent
@@ -32,7 +32,7 @@ class AgentRuntime:
     agent: Agent[Any]
     capital: int
     position: Cell
-    prev_pos: Cell  # interpolation
+    prev_position: Cell  # interpolation
     status: AgentStatus = AgentStatus.IDLE
     target: MachineId | None = None
     path: list[Cell] = field(default_factory=lambda: list[Cell]())
@@ -133,11 +133,29 @@ class World(VerStateMixin):
             )
 
     def _tick_machines(self) -> None:
-        pass
+        for machine_id in self._machine_order:
+            self.machines[machine_id].tick(self.tick_count)
 
     def _advance_movement(self) -> None:
-        pass
-
+        for agent_id in self._agent_order:
+            rt = self.runtimes[agent_id]
+            if rt.status is not AgentStatus.MOVING:
+                continue
+            rt.ticks_to_next_cell -= 1
+            if rt.ticks_to_next_cell > 0:
+                continue
+            rt.path_index += 1
+            rt.prev_position = rt.position
+            rt.position = rt.path[rt.path_index]
+            if rt.path_index >= len(rt.path) - 1:
+                # we have arrived and are joining the queue.
+                # the game will start in the serve_queues phase
+                assert rt.target is not None
+                rt.status = AgentStatus.QUEUED
+                self.queues[rt.target].append(agent_id)
+            else:
+                rt.ticks_to_next_cell = self.ticks_per_cell
+                
     def _serve_queues(self) -> None:
         pass
 
