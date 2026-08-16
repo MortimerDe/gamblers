@@ -21,9 +21,15 @@ from gamblers.core.types import (
     Obs,
     Outcome,
     Tick,
+    action_from_dict,
+    action_to_dict,
+    observation_from_dict,
+    observation_to_dict,
+    outcome_from_dict,
+    outcome_to_dict,
 )
 from gamblers.core.utils import *
-from gamblers.core.versioning import VerStateMixin
+from gamblers.core.versioning import StateVerErr, VerStateMixin
 
 
 class AgentStatus(Enum):
@@ -311,3 +317,133 @@ class World(VerStateMixin):
                 extra=extra or {},
             )
         )
+
+    # de/serialization
+
+    def _state_payload(self) -> dict[str, Any]:
+        return {
+            "tick": int(self.tick_count),
+            "config_hash": self.config_hash,
+            "ticks_per_cell": self.ticks_per_cell,
+            "seq": self._seq,
+            "rng": self.rng.dump_state(),
+            "machines": {
+                str(mid): self.machines[mid].dump_state() for mid in self._machine_order
+            },
+            "queues": {str(m): [int(a) for a in q] for m, q in self.queues.items()},
+            "occupancy": {str(m): int(v) for m, v in self.occupancy.items()},
+            "pending": [
+                {
+                    "sort_tick": p.sort_tick,
+                    "seq": p.seq,
+                    "agent_id": int(p.agent_id),
+                    "machine_id": str(p.machine_id),
+                    "outcome": outcome_to_dict(p.outcome),
+                }
+                for p in sorted(self._pending)
+            ],
+            "agents": {
+                str(int(aid)): self._runtime_payload(self.runtimes[aid])
+                for aid in self._agent_order
+            },
+        }
+
+    @staticmethod
+    def _runtime_payload(rt: AgentRuntime) -> dict[str, Any]:
+        return {
+            "type": rt.agent.agent_type,
+            "capital": rt.capital,
+            "position": list(rt.position),
+            "prev_position": list(rt.prev_position),
+            "status": rt.status.value,
+            "target": str(rt.target) if rt.target is not None else None,
+            "path": [list(c) for c in rt.path],
+            "path_index": rt.path_index,
+            "ticks_to_next_cell": rt.ticks_to_next_cell,
+            "last_machine": str(rt.last_machine)
+            if rt.last_machine is not None
+            else None,
+            "last_delta": rt.last_delta,
+            "pending_obs": observation_to_dict(rt.pending_obs)
+            if rt.pending_obs
+            else None,
+            "pending_action": (
+                action_to_dict(rt.pending_action) if rt.pending_action else None
+            ),
+            "brain": rt.agent.dump_state(),
+        }
+
+    def _apply_state(self, payload: dict[str, Any]) -> None:
+        """Восстановить мир, УЖЕ СОБРАННЫЙ ИЗ ТОГО ЖЕ КОНФИГА.
+
+        То есть сначала builder создаёт объекты по config.yaml, потом сюда
+        заливается состояние. Поэтому чекпоинт не хранит классы Python и
+        переживает рефакторинг.
+        """
+        self.tick_count = Tick(int(payload["tick"]))
+        self.ticks_per_cell = int(payload["ticks_per_cell"])
+        self._seq = int(payload["seq"])
+        self.rng.load_state(payload["rng"])
+
+        saved_machines = payload["machines"]
+        if set(saved_machines) != {str(m) for m in self._machine_order}:
+            raise StateVerErr(
+                "Набор автоматов в чекпоинте не совпадает с конфигом: "
+                f"{sorted(saved_machines)} vs {sorted(map(str, self._machine_order))}"
+            )
+        for mid_str, envelope in saved_machines.items():
+            self.machines[MachineId(mid_str)].load_state(envelope)
+
+        self.queues = {
+            MachineId(m): deque(AgentId(int(a)) for a in q)
+            for m, q in payload["queues"].items()
+        }
+        self.occupancy = {MachineId(m): int(v) for m, v in payload["occupancy"].items()}
+
+        self._pending = [
+            PendingOutcome(
+                sort_tick=int(p["sort_tick"]),
+                seq=int(p["seq"]),
+                agent_id=AgentId(int(p["agent_id"])),
+                machine_id=MachineId(p["machine_id"]),
+                outcome=outcome_from_dict(p["outcome"]),
+            )
+            for p in payload["pending"]
+        ]
+        heapq.heapify(self._pending)
+
+        saved_agents = payload["agents"]
+        if set(saved_agents) != {str(int(a)) for a in self._agent_order}:
+            raise StateVerErr(
+                "Набор агентов в чекпоинте не совпадает с конфигом "
+                "(изменился count или список групп)"
+            )
+        for aid_str, astate in saved_agents.items():
+            self._apply_runtime(AgentId(int(aid_str)), astate)
+
+    def _apply_runtime(self, agent_id: AgentId, data: dict[str, Any]) -> None:
+        rt = self.runtimes[agent_id]
+        if data["type"] != rt.agent.agent_type:
+            raise StateVerErr(
+                f"Агент {agent_id}: в чекпоинте {data['type']!r}, "
+                f"в конфиге {rt.agent.agent_type!r}"
+            )
+        px, py = data["position"]
+        qx, qy = data["prev_position"]
+        rt.capital = int(data["capital"])
+        rt.position = (int(px), int(py))
+        rt.prev_position = (int(qx), int(qy))
+        rt.status = AgentStatus(data["status"])
+        rt.target = MachineId(data["target"]) if data["target"] else None
+        rt.path = [(int(a), int(b)) for a, b in data["path"]]
+        rt.path_index = int(data["path_index"])
+        rt.ticks_to_next_cell = int(data["ticks_to_next_cell"])
+        rt.last_machine = MachineId(data["last_machine"]) if data["last_machine"] else None
+        rt.last_delta = data["last_delta"]
+        rt.pending_obs = (
+            observation_from_dict(data["pending_obs"]) if data["pending_obs"] else None
+        )
+        rt.pending_action = (
+            action_from_dict(data["pending_action"]) if data["pending_action"] else None
+        )
+        rt.agent.load_state(data["brain"])
