@@ -12,8 +12,17 @@ from gamblers.core.agents.base import Agent
 from gamblers.core.events import Event, EventSink, EventType
 from gamblers.core.machines.base import Machine
 from gamblers.core.rng import RngHub
-from gamblers.core.types import Action, AgentId, Cell, MachineId, Obs, Outcome, Tick
-from gamblers.core.utils import todo
+from gamblers.core.types import (
+    Action,
+    ActionKind,
+    AgentId,
+    Cell,
+    MachineId,
+    Obs,
+    Outcome,
+    Tick,
+)
+from gamblers.core.utils import *
 from gamblers.core.versioning import VerStateMixin
 
 
@@ -156,7 +165,7 @@ class World(VerStateMixin):
                 self.queues[rt.target].append(agent_id)
             else:
                 rt.ticks_to_next_cell = self.ticks_per_cell
-                
+
     def _serve_queues(self) -> None:
         for machine_id in self._machine_order:
             machine = self.machines[machine_id]
@@ -164,7 +173,7 @@ class World(VerStateMixin):
             while queue:
                 cap = machine.cap
                 if cap is not None and self.occupancy[machine_id] >= cap:
-                    break # machine is full
+                    break  # machine is full
                 agent_id = queue.popleft()
                 self._start_play(agent_id, machine)
 
@@ -184,7 +193,7 @@ class World(VerStateMixin):
                 agent_id=agent_id,
                 machine_id=machine.machine_id,
                 outcome=outcome,
-            )
+            ),
         )
 
         self._log(
@@ -204,10 +213,78 @@ class World(VerStateMixin):
             self._apply_action(agent_id, obs, act)
 
     def observe(self, agent_id: AgentId) -> Obs:
-        todo()
+        rt = self.runtimes[agent_id]
+        return Obs(
+            tick=self.tick_count,
+            agent_id=agent_id,
+            capital=rt.capital,
+            position=rt.position,
+            available_machines=self._machine_ids_tuple,
+            queue_lengths={m: len(q) for m, q in self.queues.items()},
+            last_machine=rt.last_machine,
+            last_delta=rt.last_delta,
+        )
 
     def _apply_action(self, agent_id: AgentId, obs: Obs, action: Action) -> None:
-        todo()
+        rt = self.runtimes[agent_id]
+
+        if action.kind is ActionKind.IDLE:
+            return
+
+        if action.kind is ActionKind.LEAVE_QUEUE:
+            for queue in self.queues.values():
+                if agent_id in queue:
+                    queue.remove(agent_id)
+            rt.status = AgentStatus.IDLE
+            rt.target = None
+            self._log(rt, EventType.LEAVE_QUEUE)
+            return
+
+        machine_id = action.machine_id
+        # hope it's guaranteed by Actions.__post_init__
+        assert machine_id is not None
+        machine = self.machines.get(machine_id)
+        if machine is None:
+            self._log(
+                rt,
+                EventType.IDLE,
+                extra={"reason": "unknown_machine", "requested": str(machine_id)},
+            )
+            return
+
+        rt.pending_obs = obs
+        rt.pending_action = action
+        rt.target = machine_id
+        rt.path = self.find_path(rt.position, machine.position)
+        rt.path_index = 0
+
+        if len(rt.path) <= 1:
+            rt.status = AgentStatus.QUEUED
+            self.queues[machine_id].append(agent_id)
+        else:
+            rt.status = AgentStatus.MOVING
+            rt.ticks_to_next_cell = self.ticks_per_cell
+
+        self._log(
+            rt, EventType.CHOOSE, machine_id=machine_id, capital_before=rt.capital
+        )
+
+    def find_path(self, start: Cell, goal: Cell) -> list[Cell]:
+        # todo:
+        # for now just manhattan
+        # later cached A* or something like that
+        cells: list[Cell] = [start]
+        x, y = start
+        gx, gy = goal
+        step_x = 1 if gx > x else -1
+        while x != gx:
+            x += step_x
+            cells.append((x, y))
+        step_y = 1 if gy > y else -1
+        while y != gy:
+            y += step_y
+            cells.append((x, y))
+        return cells
 
     def _log(
         self,

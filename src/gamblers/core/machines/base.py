@@ -18,7 +18,7 @@ class MachineConfig(BaseModel): # = yaml
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     machine_id: MachineId
-    pos: Cell
+    position: Cell
     cap: int | None = None # None means infinite capacity
 
 C = TypeVar("C", bound=MachineConfig)
@@ -76,8 +76,8 @@ class Machine[C: MachineConfig](VerStateMixin, ABC):
     def machine_id(self) -> MachineId:
         return self.config.machine_id
     @property
-    def pos(self) -> Cell:
-        return self.config.pos
+    def position(self) -> Cell:
+        return self.config.position
     @property
     def cap(self) -> int | None:
         return self.config.cap
@@ -98,4 +98,4 @@ class Machine[C: MachineConfig](VerStateMixin, ABC):
         return None
 
     def __repr__(self) -> str:
-        return f"<{type(self).__name__} {self.machine_id!r} at {self.pos}>"
+        return f"<{type(self).__name__} {self.machine_id!r} at {self.position}>"
