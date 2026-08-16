@@ -13,6 +13,7 @@ from gamblers.core.events import Event, EventSink, EventType
 from gamblers.core.machines.base import Machine
 from gamblers.core.rng import RngHub
 from gamblers.core.types import Action, AgentId, Cell, MachineId, Obs, Outcome, Tick
+from gamblers.core.utils import todo
 from gamblers.core.versioning import VerStateMixin
 
 
@@ -157,13 +158,56 @@ class World(VerStateMixin):
                 rt.ticks_to_next_cell = self.ticks_per_cell
                 
     def _serve_queues(self) -> None:
-        pass
+        for machine_id in self._machine_order:
+            machine = self.machines[machine_id]
+            queue = self.queues[machine_id]
+            while queue:
+                cap = machine.cap
+                if cap is not None and self.occupancy[machine_id] >= cap:
+                    break # machine is full
+                agent_id = queue.popleft()
+                self._start_play(agent_id, machine)
 
     def _start_play(self, agent_id: AgentId, machine: Machine[Any]) -> None:
-        pass
+        rt = self.runtimes[agent_id]
+        rng = self.rng.machine_stream(str(machine.machine_id))
+        outcome = machine.play(agent_id, rt.capital, rng)
+        self.occupancy[machine.machine_id] += 1
+        rt.status = AgentStatus.PLAYING
+
+        self._seq += 1
+        heapq.heappush(
+            self._pending,
+            PendingOutcome(
+                sort_tick=self.tick_count + outcome.delay_ticks,
+                seq=self._seq,
+                agent_id=agent_id,
+                machine_id=machine.machine_id,
+                outcome=outcome,
+            )
+        )
+
+        self._log(
+            rt,
+            EventType.PLAY_START,
+            machine_id=machine.machine_id,
+            capital_before=rt.capital,
+        )
 
     def _decide(self) -> None:
-        pass
+        for agent_id in self._agent_order:
+            rt = self.runtimes[agent_id]
+            if rt.status is not AgentStatus.IDLE:
+                continue
+            obs = self.observe(agent_id)
+            act = rt.agent.act(obs, self.rng.agent_stream(str(agent_id)))
+            self._apply_action(agent_id, obs, act)
+
+    def observe(self, agent_id: AgentId) -> Obs:
+        todo()
+
+    def _apply_action(self, agent_id: AgentId, obs: Obs, action: Action) -> None:
+        todo()
 
     def _log(
         self,
