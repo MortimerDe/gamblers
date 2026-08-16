@@ -15,7 +15,7 @@ def _stable_key(name: str) -> int:
 
 class RngHub(VerStateMixin):
     state_kind: ClassVar[str] = "rng_hub"
-    state_ver: ClassVar[int] = 1
+    state_version: ClassVar[int] = 1
 
     def __init__(self, seed: int) -> None:
         self.seed: int = seed
@@ -46,6 +46,8 @@ class RngHub(VerStateMixin):
         self.seed = int(payload["seed"])
         self._streams.clear()
         for n, s in payload["streams"].items(): # name / state
-            gen = np.random.default_rng()
+            seq = np.random.SeedSequence(entropy=self.seed, spawn_key=(_stable_key(n),))
+            bit_gen = np.random.PCG64(seq)
+            gen = np.random.Generator(bit_gen)
             gen.bit_generator.state = s
             self._streams[n] = gen

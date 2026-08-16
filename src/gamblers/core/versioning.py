@@ -21,14 +21,14 @@ class StateVerErr(RuntimeError):
 @runtime_checkable
 class Ver(Protocol):
     state_kind: ClassVar[str]
-    state_ver: ClassVar[int]
+    state_version: ClassVar[int]
 
     def dump_state(self) -> dict[str, Any]: ...
     def load_state(self, state: dict[str, Any]) -> None: ...
 
 class VerStateMixin:
     state_kind: ClassVar[str] = ""
-    state_ver: ClassVar[int] = 1
+    state_version: ClassVar[int] = 1
 
     # overridden by subclasses
     def _state_payload(self) -> dict[str, Any]:
@@ -43,7 +43,7 @@ class VerStateMixin:
     @classmethod
     def _migrate_state(cls, payload: dict[str, Any], from_ver: int) -> dict[str, Any]:
         raise StateVerErr(
-            f"{cls.state_kind}: no migration from version {from_ver} to {cls.state_ver}, checkpoint is incompatible"
+            f"{cls.state_kind}: no migration from version {from_ver} to {cls.state_version}, checkpoint is incompatible"
         )
 
     # public API
@@ -53,7 +53,7 @@ class VerStateMixin:
             raise StateVerErr(f"{cls.__name__} does not have state")
         return StateEnvelope(
             kind=cls.state_kind,
-            version=cls.state_ver,
+            version=cls.state_version,
             payload=self._state_payload(),
         ).model_dump()
     
@@ -65,11 +65,11 @@ class VerStateMixin:
                 f"state of {env.kind!r} is being loaded into {cls.state_kind!r}"
             )
         payload = env.payload
-        if env.version != cls.state_ver:
-            if env.version > cls.state_ver:
+        if env.version != cls.state_version:
+            if env.version > cls.state_version:
                 raise StateVerErr(
                     f"{cls.state_kind}: checkpoint version {env.version} is newer than code "
-                    f"(v{env.version} > v{cls.state_ver}). Update the code."
+                    f"(v{env.version} > v{cls.state_version}). Update the code."
                 )
             payload = cls._migrate_state(payload, env.version)
         self._apply_state(payload)
