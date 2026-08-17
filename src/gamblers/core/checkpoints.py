@@ -88,7 +88,7 @@ def git_revision() -> str | None:
             timeout=2,
             check=True,
         )
-    except OSError, subprocess.SubprocessError:
+    except (OSError, subprocess.SubprocessError):
         return None
     return out.stdout.strip() or None
 

@@ -3,8 +3,9 @@ name = "gamblers"
 version = "0.2.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
+    "arcade>=3.3.3",
     "numpy>=2.5.2",
     "pyarrow>=25.0.1",
     "pydantic>=2.13.4",

@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
         "--viz", action="store_true", help="Windowed visualization of the world"
     )
     parser.add_argument(
-        "--speed", type=float, default=20.0, help="ticks/sec with --viz"
+        "--speed", type=float, default=1.0, help="ticks/sec with --viz"
     )
     parser.add_argument(
         "--ticks", type=int, default=None, help="override the length of the run"
@@ -90,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.viz:
-            todo()
+            todo("Implement windowed visualization")
         else:
             run_headless(
                 s.world,

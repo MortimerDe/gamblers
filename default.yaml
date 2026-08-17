@@ -1,14 +1,20 @@
 seed: 42
 ticks: 2000000
 ticks_per_cell: 1
-checkpoint_every: 50000
+checkpoint_every: 100000
 keep_last_checkpoints: 3
 log_batch_size: 10000
 
 machines:
   - type: coin_flipper
-    machine_id: coin_flipper
+    machine_id: coin_flipper1
     position: [1, 1]
+    eps: 0.0
+    cap: 1
+    delay_ticks: 3
+  - type: coin_flipper
+    machine_id: coin_flipper2
+    position: [5, 1]
     eps: 0.0
     cap: 1
     delay_ticks: 3
