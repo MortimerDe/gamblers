@@ -24,7 +24,10 @@ reportMissingTypeStubs = "none"
 
 [dependency-groups]
 dev = [
+    "matplotlib>=3.11.1",
+    "polars>=1.43.2",
     "pyright>=1.1.411",
     "pytest>=9.1.1",
+    "rich>=15.0.0",
     "ruff>=0.16.3",
 ]
