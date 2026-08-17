@@ -10,18 +10,23 @@ from typing import (
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
+from gamblers.core.grid.tilemap import Footprint, MachinePlacement
 from gamblers.core.types import AgentId, Cell, MachineId, Outcome, Tick
 from gamblers.core.versioning import VerStateMixin
 
 
-class MachineConfig(BaseModel): # = yaml
+class MachineConfig(BaseModel):  # = yaml
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     machine_id: MachineId
     position: Cell
-    cap: int | None = None # None means infinite capacity
+    size: tuple[int, int] = (1, 1)
+    interaction_offset: Cell = (0, -1)
+    cap: int | None = None  # None means infinite capacity
+
 
 C = TypeVar("C", bound=MachineConfig)
+
 
 class Machine[C: MachineConfig](VerStateMixin, ABC):
     config_cls: ClassVar[type[MachineConfig]]
@@ -61,7 +66,9 @@ class Machine[C: MachineConfig](VerStateMixin, ABC):
 
         declared = cls.__dict__["config_cls"]
         if not (isinstance(declared, type) and issubclass(declared, MachineConfig)):
-            raise TypeError(f"{cls.__name__}.config_cls must inherit from MachineConfig")
+            raise TypeError(
+                f"{cls.__name__}.config_cls must inherit from MachineConfig"
+            )
 
         for base in getattr(cls, "__orig_bases__", ()):
             if get_origin(base) is Machine:
@@ -75,12 +82,27 @@ class Machine[C: MachineConfig](VerStateMixin, ABC):
     @property
     def machine_id(self) -> MachineId:
         return self.config.machine_id
+
     @property
     def position(self) -> Cell:
         return self.config.position
+
     @property
     def cap(self) -> int | None:
         return self.config.cap
+
+    @property
+    def footprint(self) -> Footprint:
+        return Footprint(self.config.position, self.config.size[0], self.config.size[1])
+
+    @property
+    def interaction_cell(self) -> Cell:
+        ox, oy = self.config.position
+        dx, dy = self.config.interaction_offset
+        return (ox + dx, oy + dy)
+
+    def placement(self) -> MachinePlacement:
+        return MachinePlacement(self.machine_id, self.footprint, self.interaction_cell)
 
     def can_play(self, agent_id: AgentId, tick: Tick) -> bool:
         """
@@ -88,7 +110,9 @@ class Machine[C: MachineConfig](VerStateMixin, ABC):
         """
         return True
 
-    def play(self, agent_id: AgentId, capital: int, rng: np.random.Generator) -> Outcome:
+    def play(
+        self, agent_id: AgentId, capital: int, rng: np.random.Generator
+    ) -> Outcome:
         """
         play one round
         """

@@ -4,7 +4,7 @@ import heapq
 from dataclasses import dataclass
 from typing import Any
 
-from gamblers.core.grid.geo import octile_dist
+from gamblers.core.grid.geo import Dir8, octile_dist
 from gamblers.core.grid.nav_grid import NavView
 from gamblers.core.types import Cell
 
@@ -150,3 +150,20 @@ class ReplanPolicy:
         return ticks_since_replan >= self.period_ticks + jitter % max(
             self.jitter_ticks, 1
         )
+
+
+def sidestep(current: Cell, blocked: Cell, grid: NavView, goal: Cell) -> Cell | None:
+    blocked_direction = Dir8.between(current, blocked)
+    if blocked_direction is None:
+        return None
+
+    best: Cell | None = None
+    best_score = octile_dist(current, goal)
+    for neighbour, _ in grid.neighbours(current):
+        if neighbour == blocked:
+            continue
+        score = octile_dist(neighbour, goal)
+        if score < best_score:
+            best_score = score
+            best = neighbour
+    return best
