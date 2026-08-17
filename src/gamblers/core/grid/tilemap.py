@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import zlib
+from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import IntEnum
@@ -10,7 +11,6 @@ import numpy as np
 
 from gamblers.core.grid.geo import DIRS_8, Dir8
 from gamblers.core.types import Cell, MachineId
-from gamblers.core.utils import todo
 from gamblers.core.versioning import StateVerErr, VerStateMixin
 
 BLOCKED_COST: int = -1
@@ -237,7 +237,6 @@ class TileMap(VerStateMixin):
                 f"{placement.interaction_cell} is not walkable"
             )
 
-            
     def placement(self, machine_id: MachineId) -> MachinePlacement:
         return self._placements[machine_id]
 
@@ -247,11 +246,39 @@ class TileMap(VerStateMixin):
 
     # validation
 
-    def reachable_from(self, start: Cell) -> set[Cell]:
-        todo()
+    def reachable_from(self, start: Cell) -> set[Cell]:  # bfs
+        if not self.is_walkable(start):
+            return set()
+        visited: set[Cell] = {start}
+        queue: deque[Cell] = deque([start])
+        while queue:
+            current = queue.popleft()
+            for neighbour, _cost in self.walkable_neighbours(current):
+                if neighbour in visited:
+                    continue
+                visited.add(neighbour)
+                queue.append(neighbour)
+        return visited
 
     def validate(self, spawn_cells: list[Cell]) -> None:
-        todo()
+        if not spawn_cells:
+            raise MapValidationError("no spawn cells given")
+        for cell in spawn_cells:
+            if not self.is_walkable(cell):
+                raise MapValidationError(f"spawn cell {cell} is not walkable")
+        reachable = self.reachable_from(spawn_cells[0])
+        for cell in spawn_cells:
+            if cell not in reachable:
+                raise MapValidationError(
+                    f"spawn cell {cell} is in a different connected region "
+                    f"than {spawn_cells[0]}"
+                )
+        for pl in self.placements():
+            if pl.interaction_cell not in reachable:
+                raise MapValidationError(
+                    f"machine {pl.machine_id}: interaction cell "
+                    f"{pl.interaction_cell} is unreachable from spawns"
+                )
 
     # de/serialization
     def terrain_checksum(self) -> int:
