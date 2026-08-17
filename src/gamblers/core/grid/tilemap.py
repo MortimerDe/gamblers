@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import zlib
 from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any, ClassVar
-import zlib
 
 import numpy as np
 
@@ -105,10 +105,12 @@ class MachinePlacement:
                 "is not adjacent to the footprint"
             )
 
+
 class MapValidationError(RuntimeError):
     """
     raised when a map cannot possibly work (unreachable machines, etc.)
     """
+
 
 class TileMap(VerStateMixin):
     state_kind: ClassVar[str] = "tilemap"
@@ -121,25 +123,38 @@ class TileMap(VerStateMixin):
         self.height: int = int(terrain.shape[0])
         self.width: int = int(terrain.shape[1])
 
-        self._base_cost: np.ndarray = np.zeros((self.height, self.width), dtype=np.int32)
+        self._base_cost: np.ndarray = np.zeros(
+            (self.height, self.width), dtype=np.int32
+        )
         self._cap: np.ndarray = np.zeros((self.height, self.width), dtype=np.int8)
         self._rebuild_derived_layers()
 
         self._objects: dict[Cell, MachineId] = {}
         self._placements: dict[MachineId, MachinePlacement] = {}
 
+    # construction
+
     @classmethod
     def empty(cls, width: int, height: int, fill: Terrain = Terrain.FLOOR) -> TileMap:
         return cls(np.full((height, width), int(fill), dtype=np.int8))
 
     def _rebuild_derived_layers(self) -> None:
-        todo()
+        for terr, props in TERRAIN_PROPS.items():
+            mask = self.terrain == int(terr)
+            self._base_cost[mask] = props.base_cost
+            self._cap[mask] = props.cap
 
     def set_terrain(self, cell: Cell, kind: Terrain) -> None:
-        todo()
+        self.require_in_bounds(cell)
+        x, y = cell
+        props = TERRAIN_PROPS[kind]
+        self.terrain[y, x] = int(kind)
+        self._base_cost[y, x] = props.base_cost
+        self._cap[y, x] = props.cap
 
     def fill_rect(self, footprint: Footprint, kind: Terrain) -> None:
-        todo()
+        for c in footprint.cells():
+            self.set_terrain(c, kind)
 
     # queres
 
