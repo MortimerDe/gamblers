@@ -159,40 +159,91 @@ class TileMap(VerStateMixin):
     # queres
 
     def in_bounds(self, cell: Cell) -> bool:
-        todo()
+        x, y = cell
+        return 0 <= x < self.width and 0 <= y < self.height
 
     def require_in_bounds(self, cell: Cell) -> None:
-        todo()
+        if not self.in_bounds(cell):
+            raise ValueError(f"cell {cell} is out of bounds")
 
     def terrain_at(self, cell: Cell) -> Terrain:
-        todo()
+        self.require_in_bounds(cell)
+        return Terrain(int(self.terrain[cell[1], cell[0]]))
 
     def is_walkable(self, cell: Cell) -> bool:
-        todo()
+        if not self.in_bounds(cell):
+            return False
+        if cell in self._objects:
+            return False
+        return bool(self._base_cost[cell[1], cell[0]] != BLOCKED_COST)
 
     def base_cost_at(self, cell: Cell) -> int:
-        todo()
+        self.require_in_bounds(cell)
+        return int(self._base_cost[cell[1], cell[0]])
 
     def cap_at(self, cell: Cell) -> int:
-        todo()
+        """
+        how many agents can occupy this tile at once
+        """
+        if not self.is_walkable(cell):
+            return 0
+        return int(self._cap[cell[1], cell[0]])
 
     def set_cap(self, cell: Cell, cap: int) -> None:
-        todo()
+        self.require_in_bounds(cell)
+        self._cap[cell[1], cell[0]] = np.int8(cap)
 
     def object_at(self, cell: Cell) -> MachineId | None:
-        todo()
+        return self._objects.get(cell)
 
     def walkable_neighbours(self, cell: Cell) -> Iterator[tuple[Cell, Dir8]]:
-        todo()
+        for dir in DIRS_8:
+            neighbour = dir.apply(cell)
+            if not self.is_walkable(neighbour):
+                continue
+            if dir.is_diagonal:
+                dx, dy = dir.delta
+                a = (cell[0] + dx, cell[1])
+                b = (cell[0], cell[1] + dy)
+                if not self.is_walkable(a) or not self.is_walkable(b):
+                    continue
+            yield neighbour, dir
 
     def place_machine(self, placement: MachinePlacement) -> None:
-        todo()
+        if placement.machine_id in self._placements:
+            raise MapValidationError(f"machine {placement.machine_id} already placed")
+        for cell in placement.footprint.cells():
+            self.require_in_bounds(cell)
+            occ = self._objects.get(cell)
+            if occ is not None:
+                raise MapValidationError(
+                    f"{placement.machine_id} overlaps {occ} at cell {cell}"
+                )
+            if self._base_cost[cell[1], cell[0]] == BLOCKED_COST:
+                raise MapValidationError(
+                    f"{placement.machine_id} stands on non-floor terrain at {cell}"
+                )
+        self.require_in_bounds(placement.interaction_cell)
+        for cell in placement.footprint.cells():
+            self._objects[cell] = placement.machine_id
+        self._placements[placement.machine_id] = placement
 
+        if not self.is_walkable(placement.interaction_cell):
+            for cell in placement.footprint.cells():
+                del self._objects[cell]
+            del self._placements[placement.machine_id]
+            raise MapValidationError(
+                f"{placement.machine_id}: interaction cell "
+                f"{placement.interaction_cell} is not walkable"
+            )
+
+            
     def placement(self, machine_id: MachineId) -> MachinePlacement:
-        todo()
+        return self._placements[machine_id]
 
     def placements(self) -> Iterator[MachinePlacement]:
-        todo()
+        for m_id in sorted(self._placements):
+            yield self._placements[m_id]
 
     # validation
 
