@@ -11,7 +11,7 @@ ProgressFunc = Callable[[int, int, float], None]
 def default_progress(tick: int, total: int, ticks_per_sec: float) -> None:
     percent = 100.0 * tick / total if total else 0.0
     print(
-        f"[{percent:5.1f}%] tick {tick}/{total}  ({ticks_per_sec:,.0f} t/s)", flush=True
+        f"\r[{percent:5.1f}%] tick {tick}/{total}  ({ticks_per_sec:,.0f} t/s)", flush=True, end=""
     )
 
 

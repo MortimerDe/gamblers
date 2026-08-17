@@ -1,5 +1,5 @@
 seed: 42
-ticks: 200000
+ticks: 2000000
 ticks_per_cell: 1
 checkpoint_every: 50000
 keep_last_checkpoints: 3
@@ -9,8 +9,8 @@ machines:
   - type: coin_flipper
     machine_id: coin_flipper
     position: [1, 1]
-    eps: 0.05
-    capacity: 1
+    eps: 0.0
+    cap: 1
     delay_ticks: 3
   
 agents:

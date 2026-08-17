@@ -11,7 +11,7 @@ CHECKPOINT_FORMAT_VERSION: int = 1
 CHECKPOINT_GLOB = "chkp_*.pkl"
 
 
-class ChkpErr(RuntimeError):
+class CheckpointErr(RuntimeError):
     pass
 
 
@@ -52,10 +52,10 @@ def load_checkpoint(path: Path) -> tuple[ChkpMeta, dict[str, Any]]:
     with path.open("rb") as f:
         payload: Any = pickle.load(f)
     if not isinstance(payload, dict) or "meta" not in payload: # type: ignore
-        raise ChkpErr(f"invalid checkpoint file: {path}")
+        raise CheckpointErr(f"invalid checkpoint file: {path}")
     meta = ChkpMeta.model_validate(payload["meta"])
     if meta.format_version > CHECKPOINT_FORMAT_VERSION:
-        raise ChkpErr(
+        raise CheckpointErr(
             f"{path}: format v{meta.format_version} is newer than the code "
             f"(v{CHECKPOINT_FORMAT_VERSION}). Update the code."
         )
