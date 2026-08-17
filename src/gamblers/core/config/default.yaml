@@ -1,0 +1,20 @@
+seed: 42
+ticks: 200000
+ticks_per_cell: 1
+checkpoint_every: 50000
+keep_last_checkpoints: 3
+log_batch_size: 10000
+
+machines:
+  - type: coin_flipper
+    machine_id: coin_flipper
+    position: [1, 1]
+    eps: 0.05
+    capacity: 1
+    delay_ticks: 3
+  
+agents:
+  - type: random
+    count: 8
+    start_capital: 0
+    start_position: [0, 0]
