@@ -1,3 +1,7 @@
+# pyright: reportPrivateUsage=false
+
+from typing import Any, ClassVar
+
 import numpy as np
 
 from gamblers.core.grid.geo import DIRS_8, Dir8, chebyshev_dist
@@ -158,3 +162,53 @@ class SpatialQueue:
         if turn == 2:
             return WEIGHT_HARD_TURN
         return 0.01
+
+
+class QueueRegistry:
+    state_kind: ClassVar[str] = "queue_registry"
+
+    def __init__(self, tilemap: TileMap, max_length: int = 32) -> None:
+        self.tilemap = tilemap
+        self._queues: dict[MachineId, SpatialQueue] = {
+            placement.machine_id: SpatialQueue(
+                machine_id=placement.machine_id,
+                interaction_cell=placement.interaction_cell,
+                tilemap=tilemap,
+                max_length=max_length,
+            )
+            for placement in tilemap.placements()
+        }
+
+    def __getitem__(self, machine_id: MachineId) -> SpatialQueue:
+        return self._queues[machine_id]
+
+    def all(self) -> list[SpatialQueue]:
+        return [self._queues[m] for m in sorted(self._queues)]
+
+    def release_everywhere(self, agent_id: AgentId) -> None:
+        for queue in self.all():
+            queue.release(agent_id)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            str(queue.machine_id): {
+                "slot_cells": [list(c) for c in queue._slot_cells],
+                "slot_agents": [
+                    None if a is None else int(a) for a in queue._slot_agents
+                ],
+            }
+            for queue in self.all()
+        }
+
+    def from_payload(self, payload: dict[str, Any]) -> None:
+        for machine_id_str, data in payload.items():
+            queue = self._queues[MachineId(machine_id_str)]
+            queue._slot_cells = [(int(x), int(y)) for x, y in data["slot_cells"]]
+            queue._slot_agents = [
+                None if a is None else AgentId(int(a)) for a in data["slot_agents"]
+            ]
+            queue._agent_slots = {
+                agent_id: index
+                for index, agent_id in enumerate(queue._slot_agents)
+                if agent_id is not None
+            }
