@@ -1,10 +1,15 @@
 [project]
 name = "gamblers"
-version = "0.1.0"
+version = "0.2.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "numpy>=2.5.2",
+    "pyarrow>=25.0.1",
+    "pydantic>=2.13.4",
+    "pyyaml>=6.0.3",
+]
 
 [project.scripts]
 gamblers = "gamblers.main:main"
@@ -13,9 +18,16 @@ gamblers = "gamblers.main:main"
 requires = ["uv_build>=0.12.4,<0.13.0"]
 build-backend = "uv_build"
 
+[tool.pyright]
+typeCheckingMode = "strict"
+reportMissingTypeStubs = "none"
+
 [dependency-groups]
 dev = [
+    "matplotlib>=3.11.1",
+    "polars>=1.43.2",
     "pyright>=1.1.411",
     "pytest>=9.1.1",
+    "rich>=15.0.0",
     "ruff>=0.16.3",
 ]
